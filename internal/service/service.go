@@ -1,19 +1,17 @@
 package service
 
 import (
-	"gustav-tgbot/internal/service/callback"
-	"gustav-tgbot/internal/service/text"
+	"gustav-tgbot/internal/repository"
+	"gustav-tgbot/internal/service/user"
 	"log/slog"
 )
 
 type Service struct {
-	TextService     *text.Text
-	CallbackService *callback.Callback
+	UserService *user.User
 }
 
-func NewService(log *slog.Logger) *Service {
+func NewService(repository *repository.Repository, log *slog.Logger) *Service {
 	return &Service{
-		TextService:     text.NewTextService(log),
-		CallbackService: callback.NewCallbackService(log),
+		UserService: user.NewUserService(repository.UserRepository, log),
 	}
 }

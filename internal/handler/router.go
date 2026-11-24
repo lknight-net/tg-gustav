@@ -8,16 +8,12 @@ import (
 )
 
 type Router struct {
-	B *bot.Bot
+	log *slog.Logger
+	B   *bot.Bot
 }
 
-func NewRouter(b *bot.Bot, service *service.Service, log *slog.Logger) *Router {
-	handlers := NewHandler(service.TextService, service.CallbackService, log)
-
-	b.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypeExact, handlers.TextHandler.StartMessage)
-	b.RegisterHandler(bot.HandlerTypeCallbackQueryData, "button", bot.MatchTypePrefix, handlers.CallbackHandler.CallbackHandler)
-
-	return &Router{
-		B: b,
-	}
+func NewRouter(service *service.Service, b *bot.Bot, log *slog.Logger) *Router {
+	handler := NewHandler(service, log)
+	b.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypeExact, handler.CommandHandler.StartMessage)
+	return &Router{log: log, B: b}
 }

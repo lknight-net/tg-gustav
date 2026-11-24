@@ -13,6 +13,9 @@ type Config struct {
 		Version string `yaml:"version"`
 		State   string `yaml:"state"`
 	} `yaml:"app"`
+	Database struct {
+		Path string `yaml:"path"`
+	} `yaml:"database"`
 	Telegram struct {
 		Token string `yaml:"token"`
 	} `yaml:"telegram"`
@@ -38,6 +41,8 @@ func (c *Config) String() string {
 		"\tName: %s\n"+
 		"\tVersion: %s\n"+
 		"\tState: %s\n"+
+		"Database:\n"+
+		"\tPath: %s\n"+
 		"Telegram:\n"+
-		"\tToken: %s\n", c.App.Name, c.App.Version, c.App.State, c.Telegram.Token)
+		"\tToken: %s\n", c.App.Name, c.App.Version, c.App.State, c.Database.Path, c.Telegram.Token)
 }

@@ -1,7 +1,14 @@
 package main
 
-import "gustav-tgbot/internal/app"
+import (
+	"gustav-tgbot/config"
+	"gustav-tgbot/internal/app"
+)
 
 func main() {
-	app.Run()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		panic(err)
+	}
+	app.Run(cfg)
 }
