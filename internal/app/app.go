@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"gustav-tgbot/config"
 	"gustav-tgbot/internal/database"
 	"gustav-tgbot/internal/handler"
@@ -28,6 +29,9 @@ func Run(cfg *config.Config) {
 		panic(err)
 	}
 	defer db.Close()
+
+	//initMigrations(db, log)
+
 	log.Info("Configuration loaded: ", cfg)
 
 	repository := repository.NewRepository(db, log)
@@ -37,8 +41,31 @@ func Run(cfg *config.Config) {
 
 }
 
+func initMigrations(db *sql.DB, log *slog.Logger) {
+	migrate, err := database.NewMigrator(db)
+	if err != nil {
+		log.Error("failed to create migrations: ", err)
+	}
+
+	defer func(migrate *database.Migrator) {
+		err := migrate.Close()
+		if err != nil {
+			log.Error("failed to close migrations: ", err)
+		}
+	}(migrate)
+
+	err = migrate.Up()
+	if err != nil {
+		log.Error("failed to up migrations: ", err)
+	}
+}
+
 func initTelegramBot(ctx context.Context, cfg *config.Config, srvc *service.Service, log *slog.Logger) {
-	b, err := bot.New(cfg.Telegram.Token)
+	opts := []bot.Option{
+		bot.WithDefaultHandler(handler.MiddlewareMessage),
+	}
+
+	b, err := bot.New(cfg.Telegram.Token, opts...)
 	if err != nil {
 		log.Error("failed to create new bot: %w", err)
 	}
