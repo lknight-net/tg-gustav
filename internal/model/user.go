@@ -1,14 +1,16 @@
 package model
 
 type User struct {
-	ID       int64
-	UserName *string
-	ChatID   int64
+	ID        int64
+	UserName  *string
+	ChatID    int64
+	StateUser string
 }
 
 func NewUser(username *string, chatID int64) *User {
 	return &User{
-		UserName: username,
-		ChatID:   chatID,
+		UserName:  username,
+		ChatID:    chatID,
+		StateUser: StateInactivity,
 	}
 }

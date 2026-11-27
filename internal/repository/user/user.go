@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"gustav-tgbot/internal/model"
 	"log/slog"
+
+	"modernc.org/sqlite"
 )
+
+const sqliteConstraintUnique = 2067
 
 type User struct {
 	db *sql.DB
@@ -15,98 +19,69 @@ type User struct {
 	log *slog.Logger
 }
 
-func (u *User) CreateUser(ctx context.Context, user *model.User) (int64, error) {
-	query := `
-        INSERT INTO users (chat_id, username)
-        VALUES (?, ?)
-    `
+func (u *User) UpdateStateUserByChatID(ctx context.Context, chatID int64, state string) error {
+	query := `UPDATE users SET state = ? WHERE chat_id = ?`
 
-	result, err := u.db.ExecContext(ctx, query, user.ChatID, user.UserName)
+	result, err := u.db.ExecContext(ctx, query, state, chatID)
 	if err != nil {
-		return 0, fmt.Errorf("create user: %w", err)
+		return fmt.Errorf("update user: %w", err)
 	}
 
-	id, err := result.LastInsertId()
+	affected, err := result.RowsAffected()
 	if err != nil {
-		return 0, fmt.Errorf("get inserted user ID: %w", err)
+		return fmt.Errorf("get affected rows: %w", err)
 	}
-
-	return id, nil
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (u *User) GetUserByChatID(ctx context.Context, chatID int64) (*model.User, error) {
-	query := `
-        SELECT id, chat_id, username
-        FROM users
-        WHERE chat_id = ?
-    `
+	query := `SELECT id, username, chat_id, state FROM users WHERE chat_id = ?`
 
 	var user model.User
 
 	err := u.db.QueryRowContext(ctx, query, chatID).Scan(
 		&user.ID,
-		&user.ChatID,
 		&user.UserName,
+		&user.ChatID,
+		&user.StateUser,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, sql.ErrNoRows
 		}
 
-		return nil, fmt.Errorf("get user by chat ID: %w", err)
+		return nil, fmt.Errorf("get user by chat id: %w", err)
 	}
 
 	return &user, nil
 }
 
-func (u *User) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
+func (u *User) CreateUser(ctx context.Context, user *model.User) (int64, error) {
 	query := `
-        SELECT id, chat_id, username
-        FROM users
-        WHERE username = ?
+        INSERT INTO users (chat_id, username, state)
+        VALUES (?, ?, ?)
     `
 
-	var user model.User
-
-	err := u.db.QueryRowContext(ctx, query, username).Scan(
-		&user.ID,
-		&user.ChatID,
-		&user.UserName,
-	)
+	result, err := u.db.ExecContext(ctx, query, user.ChatID, user.UserName, user.StateUser)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+		var sqliteErr *sqlite.Error
+
+		if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqliteConstraintUnique {
+			return 0, ErrUserAlreadyExist
 		}
 
-		return nil, fmt.Errorf("get user by username: %w", err)
+		return 0, fmt.Errorf("create user: %w", err)
 	}
 
-	return &user, nil
-}
-
-func (u *User) GetUserByID(ctx context.Context, id int64) (*model.User, error) {
-	query := `
-        SELECT id, chat_id, username
-        FROM users
-        WHERE id = ?
-    `
-
-	var user model.User
-
-	err := u.db.QueryRowContext(ctx, query, id).Scan(
-		&user.ID,
-		&user.ChatID,
-		&user.UserName,
-	)
+	id, err := result.LastInsertId()
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-
-		return nil, fmt.Errorf("get user by ID: %w", err)
+		return 0, fmt.Errorf("get last inserted user ID: %w", err)
 	}
 
-	return &user, nil
+	return id, nil
 }
 
 func NewUserRepository(db *sql.DB, log *slog.Logger) *User {
