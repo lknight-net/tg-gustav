@@ -19,10 +19,10 @@ type User struct {
 	log *slog.Logger
 }
 
-func (u *User) UpdateStateUserByChatID(ctx context.Context, chatID int64, state string) error {
-	query := `UPDATE users SET state = ? WHERE chat_id = ?`
+func (u *User) UpdateStateUserByUserID(ctx context.Context, userID int64, state string) error {
+	query := `UPDATE users SET state = ? WHERE id = ?`
 
-	result, err := u.db.ExecContext(ctx, query, state, chatID)
+	result, err := u.db.ExecContext(ctx, query, state, userID)
 	if err != nil {
 		return fmt.Errorf("update user: %w", err)
 	}
@@ -32,7 +32,7 @@ func (u *User) UpdateStateUserByChatID(ctx context.Context, chatID int64, state 
 		return fmt.Errorf("get affected rows: %w", err)
 	}
 	if affected == 0 {
-		return sql.ErrNoRows
+		return ErrUserNotFound
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func (u *User) GetUserByChatID(ctx context.Context, chatID int64) (*model.User, 
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, sql.ErrNoRows
+			return nil, ErrUserNotFound
 		}
 
 		return nil, fmt.Errorf("get user by chat id: %w", err)

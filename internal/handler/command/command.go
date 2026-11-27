@@ -8,7 +8,7 @@ import (
 	"gustav-tgbot/internal/model"
 	userErr "gustav-tgbot/internal/service/user"
 	"log/slog"
-	"sort"
+	"slices"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -16,16 +16,12 @@ import (
 
 type UserService interface {
 	CreateUser(ctx context.Context, username *string, chatID int64) (int64, error)
-	UpdateStateUserByChatID(ctx context.Context, chatID int64, state string) error
+	UpdateStateUserByUserID(ctx context.Context, userID int64, state string) error
 	GetUserByChatID(ctx context.Context, chatID int64) (*model.User, error)
 }
 type FileService interface {
-	GetFilesByChatID(ctx context.Context, chatID int64) (map[int64][]byte, error)
+	GetFilesByUserID(ctx context.Context, userID int64) (map[int64][]byte, error)
 }
-
-const (
-	directoryStorage = "data/storage/images"
-)
 
 type Command struct {
 	UserService UserService
@@ -117,7 +113,7 @@ func (c *Command) WatermarkMessage(ctx context.Context, b *bot.Bot, update *mode
 		return
 	}
 
-	err = c.UserService.UpdateStateUserByChatID(ctx, chatID, model.StateSendFile)
+	err = c.UserService.UpdateStateUserByUserID(ctx, user.ID, model.StateSendFile)
 	if err != nil {
 		c.log.Error("failed to update state user", "command", "/watermark", "chat_id", chatID, "error", err)
 		return
@@ -167,7 +163,7 @@ func (c *Command) CancelMessage(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
-	err = c.UserService.UpdateStateUserByChatID(ctx, chatID, model.StateInactivity)
+	err = c.UserService.UpdateStateUserByUserID(ctx, user.ID, model.StateInactivity)
 	if err != nil {
 		c.log.Error("failed to update state user", "command", "/cancel", "chat_id", chatID, "error", err)
 		return
@@ -182,7 +178,7 @@ func (c *Command) CancelMessage(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
-	filesMap, err := c.FileService.GetFilesByChatID(ctx, chatID)
+	filesMap, err := c.FileService.GetFilesByUserID(ctx, user.ID)
 	if err != nil {
 		c.log.Error("failed to get files", "command", "/cancel", "chat_id", chatID, "error", err)
 		return
@@ -195,9 +191,7 @@ func (c *Command) CancelMessage(ctx context.Context, b *bot.Bot, update *models.
 	}
 
 	// Сортируем от старых к новым.
-	sort.Slice(times, func(i, j int) bool {
-		return times[i] < times[j]
-	})
+	slices.Sort(times)
 
 	// Обрабатываем файлы в FIFO-порядке.
 	for _, t := range times {

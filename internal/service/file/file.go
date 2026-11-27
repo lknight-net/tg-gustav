@@ -34,17 +34,11 @@ type File struct {
 	log *slog.Logger
 }
 
-func (f *File) GetFilesByChatID(ctx context.Context, chatID int64) (map[int64][]byte, error) {
+func (f *File) GetFilesByUserID(ctx context.Context, userID int64) (map[int64][]byte, error) {
 
-	user, err := f.UserRepository.GetUserByChatID(ctx, chatID)
+	files, err := f.FileRepository.GetFilesByUserID(ctx, userID)
 	if err != nil {
-		f.log.Error("failed to get user by chat_id", "chat_id", chatID, "error", err)
-		return nil, err
-	}
-
-	files, err := f.FileRepository.GetFilesByUserID(ctx, user.ID)
-	if err != nil {
-		f.log.Error("failed to get files ", "chat_id", chatID, "error", err)
+		f.log.Error("failed to get files ", "user_id", userID, "error", err)
 		return nil, err
 	}
 	m := make(map[int64][]byte)
@@ -52,30 +46,24 @@ func (f *File) GetFilesByChatID(ctx context.Context, chatID int64) (map[int64][]
 
 		photo, err := os.ReadFile(*file.ShortUrlUpgrade)
 		if err != nil {
-			f.log.Error("failed to read image", "chat_id", chatID, "file url", *file.ShortUrlUpgrade, "error", err)
+			f.log.Error("failed to read image", "user_id", userID, "file url", *file.ShortUrlUpgrade, "error", err)
 			continue
 		}
 
 		m[file.CreatedAt] = photo
-		f.log.Info("file info", "chat_id", chatID, "file id", file.ID, "file url", file.ShortUrlUpgrade)
+		f.log.Info("file info", "user_id", userID, "file id", file.ID, "file url", file.ShortUrlUpgrade)
 	}
 	return m, nil
 }
 
-func (f *File) StoreFile(ctx context.Context, filePath, fileURL string, chatID int64) error {
-	user, err := f.UserRepository.GetUserByChatID(ctx, chatID)
-	if err != nil {
-		f.log.Error("failed to get user by chat_id", "chat_id", chatID, "error", err)
-		return err
-	}
-
+func (f *File) StoreFile(ctx context.Context, filePath, fileURL string, userID int64) error {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
 	resp, err := client.Get(fileURL)
 	if err != nil {
-		f.log.Error("failed to download file", "chat_id", chatID, "fileURL", fileURL, "error", err)
+		f.log.Error("failed to download file", "user_id", userID, "fileURL", fileURL, "error", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -89,11 +77,11 @@ func (f *File) StoreFile(ctx context.Context, filePath, fileURL string, chatID i
 	filename := fmt.Sprintf(
 		"%d_%d_%s",
 		time.Now().UnixNano(),
-		chatID,
+		userID,
 		filepath.Base(filePath),
 	)
 
-	file := model.NewFile(filename, ext, user.ID)
+	file := model.NewFile(filename, ext, userID)
 
 	// Путь сохранения оригинального изображения.
 	path := filepath.Join(directoryStorage, filename)
@@ -101,7 +89,7 @@ func (f *File) StoreFile(ctx context.Context, filePath, fileURL string, chatID i
 	// Создаём файл.
 	dst, err := os.Create(path)
 	if err != nil {
-		f.log.Error("failed to create file", "path", path, "error", err)
+		f.log.Error("failed to create file", "user_id", userID, "path", path, "error", err)
 		return err
 	}
 
@@ -109,7 +97,7 @@ func (f *File) StoreFile(ctx context.Context, filePath, fileURL string, chatID i
 	closeErr := dst.Close()
 
 	if copyErr != nil {
-		f.log.Error("failed to save original file", "path", path, "error", copyErr)
+		f.log.Error("failed to save original file", "user_id", userID, "path", path, "error", copyErr)
 		return copyErr
 	}
 
@@ -117,14 +105,14 @@ func (f *File) StoreFile(ctx context.Context, filePath, fileURL string, chatID i
 		return closeErr
 	}
 
-	f.log.Info("original file stored", "chat_id", chatID, "path", path)
+	f.log.Info("original file stored", "user_id", userID, "path", path)
 
 	// Сохраняем путь в модели.
 	file.SetShortUrlOriginal(&path)
 
 	// Отправляем изображение на обработку.
 	if err := f.processImage(ctx, path, filename); err != nil {
-		f.log.Error("failed to process image", "chat_id", chatID, "path", path, "error", err)
+		f.log.Error("failed to process image", "user_id", userID, "path", path, "error", err)
 		return err
 	}
 
@@ -134,11 +122,11 @@ func (f *File) StoreFile(ctx context.Context, filePath, fileURL string, chatID i
 	// Сохраняем информацию об оригинале в БД.
 	id, err := f.FileRepository.CreateFile(ctx, file)
 	if err != nil {
-		f.log.Error("failed to create file in database", "chat_id", chatID, "error", err)
+		f.log.Error("failed to create file in database", "user_id", userID, "error", err)
 		return err
 	}
 
-	f.log.Info("file stored in database", "file_id", id)
+	f.log.Info("file stored in database", "user_id", userID, "file_id", id)
 
 	return nil
 }

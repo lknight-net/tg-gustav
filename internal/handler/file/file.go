@@ -12,7 +12,7 @@ import (
 )
 
 type FileService interface {
-	StoreFile(ctx context.Context, filePath, fileURL string, chatID int64) error
+	StoreFile(ctx context.Context, filePath, fileURL string, userID int64) error
 }
 
 type UserService interface {
@@ -65,18 +65,6 @@ func (f *File) FileAcceptMessage(ctx context.Context, b *bot.Bot, update *models
 		return
 	}
 
-	//if message.MediaGroupID != "" {
-	//	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-	//		ChatID: chatID,
-	//		Text:   "Дружище, одну фотографию.",
-	//	})
-	//	if err != nil {
-	//		f.log.Error("failed to send message", "file", "file accept", "chat_id", chatID, "error", err)
-	//		return
-	//	}
-	//	f.log.Error("not more one photo!!!", "file", "file accept", "chat_id", chatID)
-	//}
-
 	if len(message.Photo) > 1 {
 		photo := message.Photo[len(message.Photo)-1]
 
@@ -90,7 +78,7 @@ func (f *File) FileAcceptMessage(ctx context.Context, b *bot.Bot, update *models
 
 		fileURL := b.FileDownloadLink(file)
 
-		err = f.FileService.StoreFile(ctx, file.FilePath, fileURL, chatID)
+		err = f.FileService.StoreFile(ctx, file.FilePath, fileURL, user.ID)
 		if err != nil {
 			f.log.Error("failed store file", "file", "file accept", "chat_id", chatID, "error", err)
 			return

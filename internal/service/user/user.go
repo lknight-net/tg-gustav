@@ -11,7 +11,7 @@ import (
 
 type UserRepository interface {
 	CreateUser(ctx context.Context, user *model.User) (int64, error)
-	UpdateStateUserByChatID(ctx context.Context, chatID int64, state string) error
+	UpdateStateUserByUserID(ctx context.Context, userID int64, state string) error
 	GetUserByChatID(ctx context.Context, chatID int64) (*model.User, error)
 }
 
@@ -33,13 +33,13 @@ func (u *User) GetUserByChatID(ctx context.Context, chatID int64) (*model.User, 
 	return user, err
 }
 
-func (u *User) UpdateStateUserByChatID(ctx context.Context, chatID int64, state string) error {
-	err := u.UserRepository.UpdateStateUserByChatID(ctx, chatID, state)
+func (u *User) UpdateStateUserByUserID(ctx context.Context, userID int64, state string) error {
+	err := u.UserRepository.UpdateStateUserByUserID(ctx, userID, state)
 	if err != nil {
-		u.log.Error("failed to update state user by chat_id", "chat_id", chatID, "state", state, "err", err)
+		u.log.Error("failed to update state user by user_id", "user_id", userID, "state", state, "err", err)
 		return err
 	}
-	u.log.Info("state user updated", "chat_id", chatID, "state", state)
+	u.log.Info("state user updated", "user_id", userID, "state", state)
 	return nil
 }
 
